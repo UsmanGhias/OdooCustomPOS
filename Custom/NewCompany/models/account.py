@@ -327,6 +327,77 @@
 #         except Exception as e:
 #             _logger.error(f"Error switching company for user {user.name}: {e}")
 #
+#
+# from odoo import models, api
+# import logging
+# import os
+#
+# _logger = logging.getLogger(__name__)
+#
+# class ResUsers(models.Model):
+#     _inherit = 'res.users'
+#
+#     @api.model
+#     def _cron_switch_company_after_delay(self, user_id, company_id):
+#         admin_user = os.environ.get('admin')
+#         admin_password = os.environ.get('admin')
+#
+#         # Use sudo with admin credentials for privileged operations
+#         self.with_user(user=admin_user, password=admin_password).sudo().switch_company_after_delay(user_id, company_id)
+#
+#     @api.model
+#     def create(self, vals):
+#         # Create the user with the default company initially
+#         new_user = super(ResUsers, self).create({**vals, 'company_id': self.env.ref('base.main_company').id})
+#
+#         # Check if a company with the same name as the user exists
+#         existing_company = self.env['res.company'].sudo().search([('name', '=', new_user.name)], limit=1)
+#
+#         if existing_company:
+#             # Schedule a cron job to switch the user's company after 1 minute
+#             self.env['ir.cron'].sudo().create({
+#                 'name': f"Switch Company for User {new_user.id}",
+#                 'model_id': self.env['ir.model'].search([('model', '=', 'res.users')], limit=1).id,
+#                 'state': 'code',
+#                 'code': 'model._cron_switch_company_after_delay(%s, %s)' % (new_user.id, existing_company.id),
+#                 'interval_number': 1,
+#                 'interval_type': 'minutes',
+#                 'numbercall': 1,
+#                 'doall': True,
+#             })
+#         else:
+#             # Create the company after the user
+#             company_vals = {
+#                 'name': new_user.name,
+#                 'currency_id': self.env.ref('base.PKR').id,  # Adjust currency as needed
+#             }
+#             new_company = self.env['res.company'].sudo().create(company_vals)
+#
+#             # Schedule a cron job to switch the user's company after 1 minute
+#             self.env['ir.cron'].sudo().create({
+#                 'name': f"Switch Company for User {new_user.id}",
+#                 'model_id': self.env['ir.model'].search([('model', '=', 'res.users')], limit=1).id,
+#                 'state': 'code',
+#                 'code': 'model._cron_switch_company_after_delay(%s, %s)' % (new_user.id, new_company.id),
+#                 'interval_number': 1,
+#                 'interval_type': 'minutes',
+#                 'numbercall': 1,
+#                 'doall': True,
+#             })
+#
+#         return new_user
+#
+#     @api.model
+#     def _cron_switch_company_after_delay(self, user_id, company_id):
+#         """Wrapper function for cron job to switch the user's company."""
+#         user = self.browse(user_id)
+#         company = self.env['res.company'].browse(company_id)
+#
+#         # Run the switching logic with elevated privileges
+#         with self.env.cr.savepoint():
+#             user.sudo().write({'company_id': company.id})
+#             _logger.info(f"Company switched successfully for user: {user.name}")
+
 
 from odoo import models, api
 import logging
@@ -364,7 +435,13 @@ class ResUsers(models.Model):
                 'interval_type': 'minutes',
                 'numbercall': 1,
                 'doall': True,
+                'user_id': new_user.id,  # Pass user ID to cron job
             })
+
+            # Assign the group ID of 'Access Rights / Administration' to the new user
+            admin_group = self.env.ref('your_admin_group_xml_id')  # Replace with the actual XML ID
+            new_user.write({'groups_id': [(4, admin_group.id)]})
+
         else:
             # Create the company after the user
             company_vals = {
@@ -383,7 +460,12 @@ class ResUsers(models.Model):
                 'interval_type': 'minutes',
                 'numbercall': 1,
                 'doall': True,
+                'user_id': new_user.id,  # Pass user ID to cron job
             })
+
+            # Assign the group ID of 'Access Rights / Administration' to the new user
+            admin_group = self.env.ref('base.group_erp_manager')  # Replace with the actual XML ID
+            new_user.write({'groups_id': [(4, admin_group.id)]})
 
         return new_user
 

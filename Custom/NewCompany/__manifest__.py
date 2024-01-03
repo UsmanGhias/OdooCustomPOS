@@ -6,7 +6,7 @@
     'description': """
         This module customizes the login process and restricts users to the Point of Sale module.
     """,
-    'author': 'Junaid Alam',
+    'author': 'Usman Ghias',
     'website': 'www.telenoc.org',
     'depends': ['point_of_sale', 'hr', 'base', 'account'],
     # 'data':[
